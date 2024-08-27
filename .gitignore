@@ -1,0 +1,15 @@
+# Logs
+logs
+*.log
+
+dist
+dist-ssr
+*.local
+.env
+app/.env
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.env
