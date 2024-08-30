@@ -3,4 +3,5 @@ from api.v1.endpoints.report import router as report_router
 
 app = FastAPI()
 
-app.include_router(report_router)
+# Include routers
+app.include_router(report_router, prefix="/api/v1")
