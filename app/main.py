@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from api.endpoints.report import router as report_router
+from api.v1.endpoints.report import router as report_router
 
 app = FastAPI()
 
