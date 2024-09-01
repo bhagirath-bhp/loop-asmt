@@ -1,68 +1,55 @@
-import sqlite3
-import pandas as pd
 import os
 from dotenv import load_dotenv
+from sqlalchemy import create_engine, Table, Column, Integer, String, MetaData
+from sqlalchemy.orm import sessionmaker
+import pandas as pd
 
 # Load environment variables from .env file
 load_dotenv()
 
-DATABASE_PATH = os.getenv('DATABASE_PATH', 'database.db')
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:mysecretpassword@db:5432/test_db')
 STORE_DATA_CSV = os.getenv('STORE_DATA_CSV')
 BUSINESS_HOURS_CSV = os.getenv('BUSINESS_HOURS_CSV')
 TIMEZONES_CSV = os.getenv('TIMEZONES_CSV')
+print(f"Using database at {DATABASE_URL}, store data CSV at {STORE_DATA_CSV}, business hours CSV at {BUSINESS_HOURS_CSV}, and timezones CSV at {TIMEZONES_CSV}")
 
-def get_db_connection():
-    """Create and return a new database connection."""
-    conn = sqlite3.connect(DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+# Create a database engine
+engine = create_engine(DATABASE_URL)
+Session = sessionmaker(bind=engine)
+metadata = MetaData()
 
 def create_tables():
-    """Create tables in the SQLite database if they don't exist."""
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        
-        # Define table creation SQL statements
-        tables = {
-            'store_data': """
-                CREATE TABLE IF NOT EXISTS store_data (
-                    store_id TEXT,
-                    timestamp_utc TEXT,
-                    status TEXT
-                )
-            """,
-            'business_hours': """
-                CREATE TABLE IF NOT EXISTS business_hours (
-                    store_id TEXT,
-                    dayOfWeek INTEGER,
-                    start_time_local TEXT,
-                    end_time_local TEXT
-                )
-            """,
-            'timezones': """
-                CREATE TABLE IF NOT EXISTS timezones (
-                    store_id TEXT,
-                    timezone_str TEXT
-                )
-            """
-        }
-        
-        # Execute each table creation SQL statement
-        for table_name, sql in tables.items():
-            cursor.execute(sql)
-        
-        conn.commit()
+    """Create tables in the PostgreSQL database if they don't exist."""
+    store_data = Table('store_data', metadata,
+                       Column('store_id', String, primary_key=True),
+                       Column('timestamp_utc', String),
+                       Column('status', String)
+                       )
+
+    business_hours = Table('business_hours', metadata,
+                           Column('store_id', String),
+                           Column('dayOfWeek', Integer),
+                           Column('start_time_local', String),
+                           Column('end_time_local', String)
+                           )
+
+    timezones = Table('timezones', metadata,
+                      Column('store_id', String, primary_key=True),
+                      Column('timezone_str', String)
+                      )
+
+    metadata.create_all(engine)
 
 def load_csv_to_db(csv_path, table_name):
     """Load data from a CSV file into a specified database table."""
     if not csv_path:
         print(f"Warning: No CSV path specified for table {table_name}.")
         return
-    
+
     df = pd.read_csv(csv_path)
     
-    with get_db_connection() as conn:
-        df.to_sql(table_name, conn, if_exists='append', index=False)
+    # Save DataFrame to PostgreSQL
+    df.to_sql(table_name, engine, if_exists='append', index=False)
 
 def load_store_data():
     """Load store data from a CSV file into the database."""
@@ -93,4 +80,3 @@ def init():
     load_timezones()
     print("Database initialized and data loaded.")
 
-init()

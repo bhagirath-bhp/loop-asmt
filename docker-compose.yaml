@@ -10,6 +10,13 @@ services:
       - db
     environment:
       - DATABASE_URL=postgresql://postgres:mysecretpassword@db:5432/test_db
+      - STORE_DATA_CSV=/data/store-status.csv
+      - BUSINESS_HOURS_CSV=/data/menu-hours.csv
+      - TIMEZONES_CSV=/data/timezones.csv
+    volumes:
+      - ./app:/app
+      - ./data:/app/data  # Add this line to mount the data directory
+    working_dir: /app
 
   db:
     image: postgres:latest

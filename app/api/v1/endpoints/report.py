@@ -18,6 +18,8 @@ def test_endpoint():
 @router.post("/trigger_report", response_model=TriggerReportResponse)
 def trigger_report():
     report_id = generate_report()
+    if not report_id:
+        raise HTTPException(status_code=500, detail="Failed to generate report")
     return TriggerReportResponse(report_id=report_id)
 
 @router.get("/get_report/{report_id}", response_model=ReportStatusResponse)
@@ -38,8 +40,6 @@ def get_report(report_id: str):
             raise HTTPException(status_code=500, detail="Report file not found")
     
     raise HTTPException(status_code=500, detail="Unexpected error occurred")
-
-
 
 @router.get("/download_report/{report_id}")
 def download_report(report_id: str):
