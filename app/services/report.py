@@ -3,7 +3,7 @@ import uuid
 import pandas as pd
 import pytz
 from datetime import datetime, timedelta
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -39,19 +39,29 @@ def generate_report():
 
         # Save report status to DB
         with get_db_connection() as conn:
-            conn.execute(
-                """
+            # Ensure the report_status table exists
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS report_status (
+                    report_id TEXT PRIMARY KEY,
+                    status TEXT,
+                    file_path TEXT
+                )
+            """))
+
+            # Insert or update report status
+            query = text("""
                 INSERT INTO report_status (report_id, status, file_path)
-                VALUES (%s, %s, %s)
-                """,
-                (report_id, "Complete", report_file_path)
-            )
+                VALUES (:report_id, :status, :file_path)
+                ON CONFLICT (report_id) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    file_path = EXCLUDED.file_path
+            """)
+            conn.execute(query, {"report_id": report_id, "status": "Complete", "file_path": report_file_path})
         
         return report_id
-    except Exception as e:
+    except SQLAlchemyError as e:
         print(f"An error occurred while generating the report: {e}")
         return None
-
 
 def compute_report_data():
     # Define the timezone (UTC)
@@ -62,12 +72,6 @@ def compute_report_data():
     last_hour_start = now - timedelta(hours=1)
     last_day_start = now - timedelta(days=1)
     last_week_start = now - timedelta(weeks=1)
-
-    # Convert to string format for SQL queries
-    now_str = now.isoformat()
-    last_hour_start_str = last_hour_start.isoformat()
-    last_day_start_str = last_day_start.isoformat()
-    last_week_start_str = last_week_start.isoformat()
 
     try:
         with get_db_connection() as conn:
@@ -138,23 +142,21 @@ def get_report_status(report_id: str):
         with get_db_connection() as conn:
             # Ensure the table exists
             conn.execute(
-                """
+                text("""
                 CREATE TABLE IF NOT EXISTS report_status (
                     report_id TEXT PRIMARY KEY,
                     status TEXT,
                     file_path TEXT
                 );
-                """
+                """)
             )
             # Check report status
-            result = conn.execute(
-                """
+            query = text("""
                 SELECT status, file_path
                 FROM report_status
-                WHERE report_id = %s
-                """,
-                (report_id,)
-            ).fetchone()
+                WHERE report_id = :report_id
+            """)
+            result = conn.execute(query, {"report_id": report_id}).fetchone()
 
             if result:
                 status, file_path = result
